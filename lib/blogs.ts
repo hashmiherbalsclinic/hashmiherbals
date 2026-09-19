@@ -184,8 +184,8 @@ async function queryPublishedBlogs(): Promise<BlogPost[]> {
       .order("published_at", { ascending: false });
 
     if (error) throw error;
-    if (!data?.length) return STATIC_POSTS;
-    return data.map(mapRow);
+    // Empty published list is valid — do not replace with legacy static posts.
+    return (data ?? []).map(mapRow);
   } catch (e) {
     console.error("queryPublishedBlogs", e);
     return STATIC_POSTS;

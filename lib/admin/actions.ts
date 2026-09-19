@@ -209,14 +209,19 @@ export async function updateOrderStatus(orderId: string, status: OrderStatus) {
 }
 
 export async function revalidateProductsCache() {
-  const { revalidateTag } = await import("next/cache");
+  const { revalidatePath, revalidateTag } = await import("next/cache");
   const { PRODUCTS_CACHE_TAG } = await import("@/lib/products");
   revalidateTag(PRODUCTS_CACHE_TAG);
+  revalidatePath("/");
+  revalidatePath("/shop");
+  revalidatePath("/shop", "layout");
 }
 
 export async function revalidateBlogsCache() {
   const { revalidatePath, revalidateTag } = await import("next/cache");
   const { BLOGS_CACHE_TAG } = await import("@/lib/blogs");
   revalidateTag(BLOGS_CACHE_TAG);
+  revalidatePath("/");
   revalidatePath("/blogs");
+  revalidatePath("/blogs", "layout");
 }
