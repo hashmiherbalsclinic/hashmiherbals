@@ -3,13 +3,18 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { User } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
+import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
 
 export function AccountNavButton() {
   const [loggedIn, setLoggedIn] = useState(false);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
+    if (!isSupabaseConfigured()) {
+      setReady(true);
+      return;
+    }
+
     const supabase = createClient();
     let mounted = true;
 
