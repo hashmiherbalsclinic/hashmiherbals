@@ -17,7 +17,12 @@ export default async function AdminBlogsPage() {
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-muted">{posts.length} posts</p>
+        <div>
+          <p className="text-sm text-muted">{posts.length} posts</p>
+          <p className="mt-0.5 text-xs text-stone-400">
+            Create rich posts with cover photos and formatted content.
+          </p>
+        </div>
         <Link
           href="/admin/blogs/new"
           className="inline-flex items-center gap-2 rounded-xl bg-[#1f5c45] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#174a37]"
@@ -29,15 +34,15 @@ export default async function AdminBlogsPage() {
 
       {posts.length === 0 ? (
         <p className="rounded-2xl border border-[#d8e0d6] bg-white px-5 py-12 text-center text-sm text-muted shadow-sm">
-          No blog posts yet.
+          No blog posts yet. Create your first post with the rich editor.
         </p>
       ) : (
         <div className="overflow-hidden rounded-2xl border border-[#d8e0d6] bg-white shadow-sm">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[700px] text-left text-sm">
+            <table className="w-full min-w-[760px] text-left text-sm">
               <thead className="bg-[#f3f6f2] text-xs uppercase tracking-wide text-muted">
                 <tr>
-                  <th className="px-5 py-3 font-semibold">Title</th>
+                  <th className="px-5 py-3 font-semibold">Post</th>
                   <th className="px-5 py-3 font-semibold">Category</th>
                   <th className="px-5 py-3 font-semibold">Status</th>
                   <th className="px-5 py-3 font-semibold">Date</th>
@@ -48,8 +53,28 @@ export default async function AdminBlogsPage() {
                 {posts.map((post) => (
                   <tr key={post.id} className="hover:bg-[#f8faf7]">
                     <td className="px-5 py-3">
-                      <p className="font-semibold text-[#0f2a22]">{post.title}</p>
-                      <p className="text-xs text-muted">{post.slug}</p>
+                      <div className="flex items-center gap-3">
+                        <div className="relative h-12 w-16 shrink-0 overflow-hidden rounded-lg bg-[#f3f6f2]">
+                          {post.image ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={post.image}
+                              alt=""
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center text-[10px] text-muted">
+                              N/A
+                            </div>
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="truncate font-semibold text-[#0f2a22]">
+                            {post.title}
+                          </p>
+                          <p className="truncate text-xs text-muted">{post.slug}</p>
+                        </div>
+                      </div>
                     </td>
                     <td className="px-5 py-3 text-[#0f2a22]">{post.category}</td>
                     <td className="px-5 py-3">

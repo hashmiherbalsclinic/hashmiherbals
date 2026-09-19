@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
-import { Plus, Star } from "lucide-react";
+import { Star } from "lucide-react";
 import { formatPrice, type Product } from "@/lib/catalog";
 import { useCart } from "@/store/cart";
 
@@ -33,7 +33,7 @@ export function ProductCard({ product }: { product: Product }) {
           src={product.image}
           alt={product.title}
           fill
-          className="object-contain p-6 transition-transform duration-500 ease-out group-hover:scale-105"
+          className="object-cover transition-transform duration-500 ease-out group-hover:scale-105"
           sizes="(max-width:640px) 50vw, 280px"
         />
 
@@ -55,17 +55,6 @@ export function ProductCard({ product }: { product: Product }) {
           )}
         </div>
 
-        <button
-          type="button"
-          onClick={(e) => {
-            e.preventDefault();
-            handleAdd();
-          }}
-          className="absolute bottom-3 right-3 flex h-11 min-h-11 w-11 items-center justify-center rounded-full bg-[#1B4332] text-white opacity-100 shadow-lg transition sm:translate-y-2 sm:opacity-0 sm:group-hover:translate-y-0 sm:group-hover:opacity-100"
-          aria-label={`Quick add ${product.title}`}
-        >
-          <Plus className={`h-4 w-4 transition ${added ? "rotate-45" : ""}`} />
-        </button>
       </Link>
 
       <div className="flex flex-1 flex-col px-4 pb-4 pt-3.5">

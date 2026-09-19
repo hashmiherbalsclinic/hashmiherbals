@@ -1,5 +1,6 @@
 import { formatPrice, siteConfig } from "@/lib/catalog";
 import { orderNotifyEmail, sendMail } from "@/lib/email/mailer";
+import { buildOrderConfirmationHtml } from "@/lib/email/templates/order-confirmation";
 
 export type OrderEmailItem = {
   product_title: string;
@@ -177,7 +178,9 @@ export async function sendOrderEmails(order: OrderEmailData) {
   const shippingLabel =
     order.shippingFee === 0 ? "Free" : formatPrice(order.shippingFee);
   const addressLine = [order.address, order.city].filter(Boolean).join(", ");
-  const waHref = `https://wa.me/${siteConfig.whatsapp}`;
+  const customerTo = order.customerEmail?.trim().toLowerCase() || "";
+  const adminTo = orderNotifyEmail();
+  const replyTo = adminTo;
 
   const orderItemsCard = sectionCard(
     "Order items",
@@ -187,50 +190,17 @@ export async function sendOrderEmails(order: OrderEmailData) {
     ${totalsBlock(order, shippingLabel)}`
   );
 
-  // Customer confirmation
-  if (order.customerEmail) {
-    const customerHtml = emailShell({
-      preheader: `Order ${order.orderNumber} confirmed · Total ${formatPrice(order.total)} COD`,
-      badge: "Order confirmed",
-      title: "Shukriya for your order",
-      subtitle: `Assalamualaikum ${escapeHtml(order.customerName)} — your Cash on Delivery order is received.`,
-      body: `
-        <div style="margin:0 0 20px;padding:16px 18px;border-radius:14px;background:${C.cream};border:1px solid ${C.line};">
-          <p style="margin:0;font-size:12px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:${C.green};">Order number</p>
-          <p style="margin:6px 0 0;font-size:22px;font-weight:700;color:${C.forest};letter-spacing:0.02em;">${escapeHtml(order.orderNumber)}</p>
-          <p style="margin:8px 0 0;font-size:13px;color:${C.muted};">Payment: Cash on Delivery</p>
-        </div>
+  const sendCustomerConfirmation = async () => {
+    if (!customerTo) {
+      throw new Error("Missing customer email for order confirmation");
+    }
 
-        ${orderItemsCard}
-
-        ${sectionCard(
-          "Delivery details",
-          `<p style="margin:0;font-size:14px;line-height:1.7;color:${C.ink};">
-            <strong>${escapeHtml(order.customerName)}</strong><br/>
-            ${escapeHtml(addressLine)}<br/>
-            Phone: ${escapeHtml(order.phone)}
-          </p>`
-        )}
-
-        <table role="presentation" cellpadding="0" cellspacing="0" style="margin:8px 0 6px;">
-          <tr>
-            <td style="border-radius:999px;background:${C.green};">
-              <a href="${waHref}" style="display:inline-block;padding:12px 22px;font-size:13px;font-weight:700;color:${C.white};text-decoration:none;">
-                Chat on WhatsApp
-              </a>
-            </td>
-          </tr>
-        </table>
-        <p style="margin:12px 0 0;font-size:13px;line-height:1.6;color:${C.muted};">
-          We&apos;ll confirm your order shortly by phone or WhatsApp. Keep your phone reachable on delivery day.
-        </p>
-      `,
-      footerNote: `This email confirms your order with ${escapeHtml(siteConfig.name)}. If you did not place this order, reply to this email or WhatsApp us.`,
-    });
+    const customerHtml = buildOrderConfirmationHtml(order);
 
     await sendMail({
-      to: order.customerEmail,
-      subject: `Order confirmed · ${order.orderNumber} · ${siteConfig.name}`,
+      to: customerTo,
+      replyTo,
+      subject: `Order confirmed - ${order.orderNumber} - ${siteConfig.name}`,
       html: customerHtml,
       text: `Assalamualaikum ${order.customerName},
 
@@ -246,18 +216,18 @@ Total (COD): ${formatPrice(order.total)}
 Delivery: ${addressLine}
 Phone: ${order.phone}
 
-We'll confirm by phone or WhatsApp shortly.
+We will confirm by phone or WhatsApp shortly.
 ${siteConfig.phone} · ${siteConfig.email}`,
     });
-  }
+  };
 
-  // Admin notification
-  const adminHtml = emailShell({
-    preheader: `New COD order ${order.orderNumber} · ${formatPrice(order.total)} from ${order.customerName}`,
-    badge: "New order alert",
-    title: "New COD order received",
-    subtitle: `${escapeHtml(order.customerName)} placed an order worth ${formatPrice(order.total)}.`,
-    body: `
+  const sendAdminNotification = async () => {
+    const adminHtml = emailShell({
+      preheader: `New COD order ${order.orderNumber} · ${formatPrice(order.total)} from ${order.customerName}`,
+      badge: "New order alert",
+      title: "New COD order received",
+      subtitle: `${escapeHtml(order.customerName)} placed an order worth ${formatPrice(order.total)}.`,
+      body: `
       <div style="margin:0 0 20px;padding:16px 18px;border-radius:14px;background:${C.forest};color:${C.white};">
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
           <tr>
@@ -277,7 +247,7 @@ ${siteConfig.phone} · ${siteConfig.email}`,
         "Customer",
         `<p style="margin:0;font-size:14px;line-height:1.75;color:${C.ink};">
           <strong>${escapeHtml(order.customerName)}</strong><br/>
-          <a href="mailto:${escapeHtml(order.customerEmail || "")}" style="color:${C.green};text-decoration:none;">${escapeHtml(order.customerEmail || "—")}</a><br/>
+          <a href="mailto:${escapeHtml(customerTo || order.customerEmail || "")}" style="color:${C.green};text-decoration:none;">${escapeHtml(customerTo || order.customerEmail || "-")}</a><br/>
           <a href="tel:${escapeHtml(order.phone)}" style="color:${C.green};text-decoration:none;">${escapeHtml(order.phone)}</a><br/>
           ${escapeHtml(addressLine)}
           ${
@@ -306,17 +276,18 @@ ${siteConfig.phone} · ${siteConfig.email}`,
         </tr>
       </table>
     `,
-    footerNote: `Internal alert for ${escapeHtml(siteConfig.name)} · Open admin orders to update status.`,
-  });
+      footerNote: `Internal alert for ${escapeHtml(siteConfig.name)} · Open admin orders to update status.`,
+    });
 
-  await sendMail({
-    to: orderNotifyEmail(),
-    subject: `New COD order ${order.orderNumber} · ${formatPrice(order.total)}`,
-    html: adminHtml,
-    text: `New COD order ${order.orderNumber}
+    await sendMail({
+      to: adminTo,
+      replyTo: customerTo || undefined,
+      subject: `New COD order ${order.orderNumber} · ${formatPrice(order.total)}`,
+      html: adminHtml,
+      text: `New COD order ${order.orderNumber}
 
 Customer: ${order.customerName}
-Email: ${order.customerEmail || "—"}
+Email: ${customerTo || order.customerEmail || "-"}
 Phone: ${order.phone}
 Address: ${addressLine}
 ${order.notes ? `Notes: ${order.notes}\n` : ""}
@@ -325,7 +296,23 @@ ${itemsText(order.items)}
 Subtotal: ${formatPrice(order.subtotal)}
 Shipping: ${shippingLabel}
 Total (COD): ${formatPrice(order.total)}`,
-  });
+    });
+  };
+
+  // Always send customer confirmation first and require success before admin alert.
+  try {
+    await sendCustomerConfirmation();
+  } catch (err) {
+    console.error("Customer order email failed, retrying once", err);
+    await new Promise((r) => setTimeout(r, 800));
+    await sendCustomerConfirmation();
+  }
+
+  try {
+    await sendAdminNotification();
+  } catch (err) {
+    console.error("Admin order email failed", err);
+  }
 }
 
 const STATUS_COPY: Record<
@@ -342,7 +329,7 @@ const STATUS_COPY: Record<
     badge: "Order confirmed",
     title: "Your order has been confirmed",
     message:
-      "Good news — your order is confirmed. We are preparing your herbal remedies for dispatch.",
+      "Good news - your order is confirmed. We are preparing your herbal remedies for dispatch.",
   },
   shipped: {
     badge: "Order shipped",
@@ -392,7 +379,7 @@ export async function sendOrderStatusUpdateEmail(data: OrderStatusEmailData) {
     preheader: `Order ${data.orderNumber} · Status: ${statusLabel}`,
     badge: copy.badge,
     title: copy.title,
-    subtitle: `Assalamualaikum ${escapeHtml(data.customerName)} — update for order ${escapeHtml(data.orderNumber)}.`,
+    subtitle: `Assalamualaikum ${escapeHtml(data.customerName)} - update for order ${escapeHtml(data.orderNumber)}.`,
     body: `
       <div style="margin:0 0 20px;padding:16px 18px;border-radius:14px;background:${C.cream};border:1px solid ${C.line};">
         <p style="margin:0;font-size:12px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:${C.green};">Order number</p>
@@ -444,7 +431,7 @@ ${typeof data.total === "number" ? `Total (COD): ${formatPrice(data.total)}\n` :
 WhatsApp: ${siteConfig.phone}
 Email: ${siteConfig.email}
 
-— ${siteConfig.name}`,
+- ${siteConfig.name}`,
   });
 
   return { ok: true as const };

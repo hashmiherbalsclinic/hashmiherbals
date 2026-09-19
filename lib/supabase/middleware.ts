@@ -2,6 +2,15 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 export async function updateSession(request: NextRequest) {
+  try {
+    return await updateSessionInner(request);
+  } catch (error) {
+    console.error("[updateSession]", error);
+    return NextResponse.next({ request });
+  }
+}
+
+async function updateSessionInner(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -29,6 +38,7 @@ export async function updateSession(request: NextRequest) {
 
   const path = request.nextUrl.pathname;
   const isAdminRoute = path.startsWith("/admin") && path !== "/admin/login";
+  const isAccountRoute = path.startsWith("/account");
 
   if (isAdminRoute) {
     if (!user) {
@@ -37,11 +47,19 @@ export async function updateSession(request: NextRequest) {
       return NextResponse.redirect(redirect);
     }
 
-    const { data: profile } = await supabase
+    const { data: profile, error: profileError } = await supabase
       .from("profiles")
       .select("role")
       .eq("id", user.id)
       .maybeSingle();
+
+    if (profileError) {
+      console.error("[updateSession] profile", profileError);
+      const redirect = request.nextUrl.clone();
+      redirect.pathname = "/admin/login";
+      redirect.searchParams.set("error", "session");
+      return NextResponse.redirect(redirect);
+    }
 
     if (profile?.role !== "admin") {
       const redirect = request.nextUrl.clone();
@@ -49,6 +67,21 @@ export async function updateSession(request: NextRequest) {
       redirect.searchParams.set("error", "unauthorized");
       return NextResponse.redirect(redirect);
     }
+  }
+
+  if (isAccountRoute && !user) {
+    const redirect = request.nextUrl.clone();
+    redirect.pathname = "/login";
+    redirect.searchParams.set("next", path);
+    return NextResponse.redirect(redirect);
+  }
+
+  if ((path === "/login" || path === "/signup") && user) {
+    const redirect = request.nextUrl.clone();
+    const next = request.nextUrl.searchParams.get("next");
+    redirect.pathname = next?.startsWith("/") ? next : "/account";
+    redirect.search = "";
+    return NextResponse.redirect(redirect);
   }
 
   if (path === "/admin/login" && user) {

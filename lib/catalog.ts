@@ -48,7 +48,7 @@ export type ProductSize = {
   /** Absolute price for this pack (preferred when set from admin) */
   price?: number;
   compareAt?: number;
-  /** Multiplier vs product.price — used only when price is omitted */
+  /** Multiplier vs product.price - used only when price is omitted */
   multiplier?: number;
 };
 

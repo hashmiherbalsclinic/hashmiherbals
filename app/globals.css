@@ -66,7 +66,7 @@
     @apply inline-flex items-center justify-center gap-2 rounded-full border border-ink/15 bg-white px-6 py-3 text-sm font-semibold text-ink transition hover:border-green hover:text-green;
   }
 
-  /* Neutral section design — structure, not color washes */
+  /* Neutral section design - structure, not color washes */
   .section-ruled {
     position: relative;
     isolation: isolate;
@@ -210,6 +210,19 @@
   animation: trustMarquee 28s linear infinite;
 }
 
+@keyframes headerRibbon {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+.animate-header-ribbon {
+  animation: headerRibbon 40s linear infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
@@ -224,7 +237,8 @@
   .hover-lift:hover {
     transform: none !important;
   }
-  .animate-trust-marquee {
+  .animate-trust-marquee,
+  .animate-header-ribbon {
     animation: none !important;
   }
 }

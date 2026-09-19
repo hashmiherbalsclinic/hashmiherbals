@@ -31,6 +31,9 @@ const navLinks = [
 ];
 
 const helpLinks = [
+  { href: "/login", label: "Sign in" },
+  { href: "/signup", label: "Create account" },
+  { href: "/account", label: "My account" },
   { href: "/terms", label: "Terms & conditions" },
   { href: "/shipping-policy", label: "Shipping policy" },
   { href: "/refund-policy", label: "Refund policy" },

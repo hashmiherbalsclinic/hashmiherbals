@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import {
   ExternalLink,
+  ImageIcon,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -22,6 +23,7 @@ const NAV = [
   { href: "/admin/orders", label: "Orders", icon: ShoppingBag },
   { href: "/admin/blogs", label: "Blogs", icon: Newspaper },
   { href: "/admin/messages", label: "Messages", icon: MessageSquare },
+  { href: "/admin/tools/webp", label: "WebP tool", icon: ImageIcon },
 ] as const;
 
 function pageTitle(pathname: string) {
@@ -35,6 +37,7 @@ function pageTitle(pathname: string) {
   if (pathname.startsWith("/admin/blogs/")) return "Edit blog post";
   if (pathname.startsWith("/admin/blogs")) return "Blogs";
   if (pathname.startsWith("/admin/messages")) return "Messages";
+  if (pathname.startsWith("/admin/tools/webp")) return "WebP converter";
   return "Admin";
 }
 

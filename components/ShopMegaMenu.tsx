@@ -40,10 +40,10 @@ export function ShopMegaMenu({ onNavigate }: Props) {
   }, [activeId]);
 
   return (
-    <div className="overflow-hidden rounded-b-2xl border border-t-0 border-black/[0.06] bg-white shadow-[0_20px_50px_rgba(0,0,0,0.12)]">
+    <div className="overflow-hidden bg-transparent">
       <div className="grid min-h-[22rem] lg:grid-cols-[14rem_1fr_16rem]">
-        <aside className="border-b border-black/[0.06] bg-[#f6f4ef] px-5 py-6 lg:border-b-0 lg:border-r">
-          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#1f4d3a]">
+        <aside className="border-b border-stone-200/70 bg-[#FAF8F5]/90 px-5 py-6 lg:border-b-0 lg:border-r">
+          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#1B4332]">
             Categories
           </p>
           <ul className="mt-4 space-y-1">
@@ -56,8 +56,8 @@ export function ShopMegaMenu({ onNavigate }: Props) {
                     onClick={() => setActiveId(c.id)}
                     className={`w-full px-1 py-2 text-left text-sm transition ${
                       selected
-                        ? "font-semibold text-[#1f4d3a] underline decoration-[#1f4d3a] underline-offset-4"
-                        : "text-[#1f4d3a]/85 hover:text-[#1f4d3a]"
+                        ? "font-semibold text-[#1B4332] underline decoration-[#1B4332] underline-offset-4"
+                        : "text-[#1B4332]/85 hover:text-[#1B4332]"
                     }`}
                   >
                     {c.name}
@@ -69,7 +69,7 @@ export function ShopMegaMenu({ onNavigate }: Props) {
               <Link
                 href="/shop"
                 onClick={onNavigate}
-                className="inline-block px-1 py-2 text-sm font-semibold text-[#1f4d3a] underline-offset-4 hover:underline"
+                className="inline-block px-1 py-2 text-sm font-semibold text-[#1B4332] underline-offset-4 hover:underline"
               >
                 Shop all
               </Link>
@@ -78,7 +78,7 @@ export function ShopMegaMenu({ onNavigate }: Props) {
         </aside>
 
         <div className="px-6 py-6 sm:px-8">
-          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#1f4d3a]">
+          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#1B4332]">
             {active.name}
           </p>
           {loading ? (
@@ -92,9 +92,9 @@ export function ShopMegaMenu({ onNavigate }: Props) {
                   <Link
                     href={`/shop/${p.slug}`}
                     onClick={onNavigate}
-                    className="flex items-center gap-3 rounded-xl px-2 py-2.5 transition hover:bg-[#f6f4ef]"
+                    className="flex items-center gap-3 rounded-xl px-2 py-2.5 transition hover:bg-[#FAF8F5]"
                   >
-                    <span className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-[#f3efe6]">
+                    <span className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-[#F4F1EA]">
                       <Image
                         src={p.image || "/images/categories/oils.webp"}
                         alt=""
@@ -119,15 +119,15 @@ export function ShopMegaMenu({ onNavigate }: Props) {
           <Link
             href={active.href}
             onClick={onNavigate}
-            className="mt-6 inline-flex text-sm font-semibold text-[#1f4d3a] hover:underline"
+            className="mt-6 inline-flex text-sm font-semibold text-[#1B4332] hover:underline"
           >
             View all {active.name} →
           </Link>
         </div>
 
-        <div className="hidden border-t border-black/[0.06] p-5 lg:block lg:border-l lg:border-t-0">
+        <div className="hidden border-t border-stone-200/70 p-5 lg:block lg:border-l lg:border-t-0">
           <Link href={active.href} onClick={onNavigate} className="group block h-full">
-            <div className="relative aspect-[4/5] overflow-hidden rounded-2xl bg-[#f3efe6]">
+            <div className="relative aspect-[4/5] overflow-hidden rounded-2xl bg-[#F4F1EA]">
               <Image
                 src={active.image}
                 alt={active.name}

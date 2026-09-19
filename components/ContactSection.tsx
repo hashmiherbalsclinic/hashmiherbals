@@ -81,11 +81,7 @@ export function ContactSection({ variant = "home" }: Props) {
           <h2 className="font-display mb-2 mt-3 text-2xl font-bold text-white">
             Talk to Our Team
           </h2>
-          <span className="mt-3 inline-flex items-center gap-2 rounded-full border border-emerald-400/25 bg-emerald-500/15 px-3 py-1.5 text-[11px] font-semibold text-emerald-100">
-            <span className="relative flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
-            </span>
+          <span className="mt-3 inline-flex items-center rounded-full border border-emerald-400/25 bg-emerald-500/15 px-3 py-1.5 text-[11px] font-semibold text-emerald-100">
             Clinic Open · Sun–Thu (10 AM – 8 PM PKT)
           </span>
 
@@ -379,7 +375,7 @@ export function ContactSection({ variant = "home" }: Props) {
               Contact Hashmi Herbals
             </h2>
             <p className="mt-3 max-w-xl text-sm leading-relaxed text-[#6b7280] sm:text-base">
-              Order help, product guidance, or clinic questions — we&apos;re here for you.
+              Order help, product guidance, or clinic questions - we&apos;re here for you.
             </p>
           </div>
         </Reveal>

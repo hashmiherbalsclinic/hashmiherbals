@@ -12,7 +12,7 @@ const pillars = [
   {
     icon: ClipboardCheck,
     title: "Transparent & Honest Dosage Labels",
-    text: "Clear guidance on every pack — so traditional formulas feel modern and trustworthy.",
+    text: "Clear guidance on every pack - so traditional formulas feel modern and trustworthy.",
   },
   {
     icon: Stethoscope,

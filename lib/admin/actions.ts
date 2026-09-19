@@ -69,35 +69,39 @@ export async function placeOrder(payload: CheckoutPayload) {
   }
 
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const orderId = crypto.randomUUID();
   const orderNumber = `HH-${Date.now().toString(36).toUpperCase()}`;
 
-  const { data: order, error } = await supabase
-    .from("orders")
-    .insert({
-      order_number: orderNumber,
-      customer_name: payload.customer_name.trim(),
-      customer_email: email,
-      phone: payload.phone.trim(),
-      address: payload.address.trim(),
-      city: payload.city?.trim() || null,
-      notes: payload.notes?.trim() || null,
-      status: "pending",
-      subtotal: payload.subtotal,
-      shipping_fee: payload.shipping_fee,
-      total: payload.total,
-      payment_method: "cod",
-    })
-    .select("id, order_number")
-    .single();
+  // Insert without .select() — guest/customer RLS allows INSERT but not SELECT,
+  // so insert().select() was failing with "violates row-level security policy".
+  const { error } = await supabase.from("orders").insert({
+    id: orderId,
+    order_number: orderNumber,
+    customer_name: payload.customer_name.trim(),
+    customer_email: email,
+    phone: payload.phone.trim(),
+    address: payload.address.trim(),
+    city: payload.city?.trim() || null,
+    notes: payload.notes?.trim() || null,
+    status: "pending",
+    subtotal: payload.subtotal,
+    shipping_fee: payload.shipping_fee,
+    total: payload.total,
+    payment_method: "cod",
+    user_id: user?.id ?? null,
+  });
 
-  if (error || !order) {
+  if (error) {
     console.error(error);
     return { error: "Could not place order. Please try again." };
   }
 
   const { error: itemsError } = await supabase.from("order_items").insert(
     payload.items.map((item) => ({
-      order_id: order.id,
+      order_id: orderId,
       product_id: item.product_id || null,
       product_title: item.product_title,
       product_slug: item.product_slug || null,
@@ -115,7 +119,7 @@ export async function placeOrder(payload: CheckoutPayload) {
 
   try {
     await sendOrderEmails({
-      orderNumber: order.order_number,
+      orderNumber,
       customerName: payload.customer_name.trim(),
       customerEmail: email,
       phone: payload.phone.trim(),
@@ -128,10 +132,14 @@ export async function placeOrder(payload: CheckoutPayload) {
       items: payload.items,
     });
   } catch (mailError) {
-    console.error("Order email failed", mailError);
+    console.error("Order email failed", {
+      orderNumber,
+      customerEmail: email,
+      error: mailError instanceof Error ? mailError.message : mailError,
+    });
   }
 
-  return { ok: true, orderNumber: order.order_number };
+  return { ok: true, orderNumber };
 }
 
 /** Admin: update order status and email the customer */
@@ -198,4 +206,17 @@ export async function updateOrderStatus(orderId: string, status: OrderStatus) {
   }
 
   return { ok: true };
+}
+
+export async function revalidateProductsCache() {
+  const { revalidateTag } = await import("next/cache");
+  const { PRODUCTS_CACHE_TAG } = await import("@/lib/products");
+  revalidateTag(PRODUCTS_CACHE_TAG);
+}
+
+export async function revalidateBlogsCache() {
+  const { revalidatePath, revalidateTag } = await import("next/cache");
+  const { BLOGS_CACHE_TAG } = await import("@/lib/blogs");
+  revalidateTag(BLOGS_CACHE_TAG);
+  revalidatePath("/blogs");
 }

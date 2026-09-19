@@ -46,7 +46,7 @@ const pillars = [
 export function AboutContent() {
   return (
     <div className="bg-white">
-      {/* Section 1 — Cinematic editorial hero */}
+      {/* Section 1 - Cinematic editorial hero */}
       <section className="relative flex min-h-[440px] items-center justify-center overflow-hidden lg:min-h-[500px]">
         <Image
           src="/images/about-hero.jpg"
@@ -90,7 +90,7 @@ export function AboutContent() {
         </Reveal>
       </section>
 
-      {/* Section 2 — Practitioner profile */}
+      {/* Section 2 - Practitioner profile */}
       <section className="bg-[#FAF8F5] py-20">
         <div className="mx-auto grid max-w-6xl items-center gap-12 px-6 lg:grid-cols-12 lg:px-8">
           <Reveal className="relative lg:col-span-5">
@@ -166,7 +166,7 @@ export function AboutContent() {
         </div>
       </section>
 
-      {/* Section 3 — Brand pillars */}
+      {/* Section 3 - Brand pillars */}
       <section className="border-y border-stone-200/60 bg-white py-20">
         <div className="mx-auto max-w-6xl px-6 lg:px-8">
           <Reveal>

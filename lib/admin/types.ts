@@ -86,6 +86,7 @@ export type BlogPostRow = {
   body: string;
   category: string;
   image: string;
+  images?: string[] | null;
   published: boolean;
   read_minutes: number;
   published_at: string;

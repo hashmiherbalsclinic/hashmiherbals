@@ -10,7 +10,7 @@ export const metadata = {
 export default function ContactPage() {
   return (
     <div className="bg-white">
-      {/* Section 1 — Editorial hero */}
+      {/* Section 1 - Editorial hero */}
       <section className="border-b border-stone-200/60 bg-[#FAF8F5] px-6 py-16">
         <div className="mx-auto max-w-3xl text-center">
           <span className="mb-4 inline-block rounded-full border border-[#1B4332]/10 bg-[#1B4332]/5 px-3.5 py-1 text-xs font-semibold tracking-wide text-[#1B4332]">

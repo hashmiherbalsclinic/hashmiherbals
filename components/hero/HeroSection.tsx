@@ -46,7 +46,7 @@ export function HeroSection(_props: Props) {
           </h1>
 
           <p className="mt-5 max-w-md text-[15px] leading-relaxed text-[#6b7280] sm:text-base">
-            Traditional Unani remedies — oils, majoons, powders, and salajeet — crafted with
+            Traditional Unani remedies - oils, majoons, powders, and salajeet - crafted with
             clinical care for modern Pakistani homes.
           </p>
 

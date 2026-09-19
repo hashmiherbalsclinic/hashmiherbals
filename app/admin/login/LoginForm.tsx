@@ -2,17 +2,24 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { PasswordInput } from "@/components/auth/PasswordInput";
 import { createClient } from "@/lib/supabase/client";
+import { toUserFacingError } from "@/lib/errors/user-message";
+import { ErrorAlert } from "@/components/errors/ErrorAlert";
 
 export default function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const unauthorized = searchParams.get("error") === "unauthorized";
+  const errParam = searchParams.get("error");
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(
-    unauthorized ? "You do not have admin access." : null
+    errParam === "unauthorized"
+      ? "You do not have admin access."
+      : errParam === "session"
+        ? "Could not verify your session. Please sign in again."
+        : null
   );
   const [loading, setLoading] = useState(false);
 
@@ -29,20 +36,28 @@ export default function LoginForm() {
 
     if (authError || !data.user) {
       setLoading(false);
-      setError(authError?.message ?? "Sign in failed.");
+      setError(toUserFacingError(authError?.message ?? "Sign in failed.", "admin"));
       return;
     }
 
-    const { data: profile } = await supabase
+    const { data: profile, error: profileError } = await supabase
       .from("profiles")
       .select("role")
       .eq("id", data.user.id)
       .maybeSingle();
 
+    if (profileError) {
+      setLoading(false);
+      setError(toUserFacingError(profileError.message || "Could not load your profile.", "admin"));
+      return;
+    }
+
     if (profile?.role !== "admin") {
       await supabase.auth.signOut();
       setLoading(false);
-      setError("You do not have admin access.");
+      setError(
+        "Signed in, but this account is not an admin. Ask to set role = admin on your profile."
+      );
       return;
     }
 
@@ -72,8 +87,12 @@ export default function LoginForm() {
           className="rounded-2xl border border-white/10 bg-white/95 p-6 shadow-2xl backdrop-blur sm:p-8"
         >
           {error && (
-            <div className="mb-5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-              {error}
+            <div className="mb-5">
+              <ErrorAlert
+                error={error}
+                audience="admin"
+                onDismiss={() => setError(null)}
+              />
             </div>
           )}
 
@@ -90,18 +109,16 @@ export default function LoginForm() {
             />
           </label>
 
-          <label className="mt-4 block text-sm font-medium text-[#0f2a22]">
-            Password
-            <input
-              type="password"
-              required
-              autoComplete="current-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="mt-1.5 w-full rounded-xl border border-[#d8e0d6] bg-white px-3.5 py-2.5 text-sm outline-none transition focus:border-[#74a13a] focus:ring-2 focus:ring-[#74a13a]/25"
-              placeholder="••••••••"
-            />
-          </label>
+          <PasswordInput
+            label="Password"
+            labelClassName="mt-4 block text-sm font-medium text-[#0f2a22]"
+            className="w-full rounded-xl border border-[#d8e0d6] bg-white px-3.5 py-2.5 pr-11 text-sm outline-none transition focus:border-[#74a13a] focus:ring-2 focus:ring-[#74a13a]/25"
+            required
+            autoComplete="current-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="••••••••"
+          />
 
           <button
             type="submit"

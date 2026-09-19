@@ -104,7 +104,7 @@ export function ConsultationContent() {
 
   return (
     <div className="bg-white">
-      {/* Section 1 — Hero */}
+      {/* Section 1 - Hero */}
       <section className="border-b border-stone-200/60 bg-[#FAF8F5] px-6 py-16">
         <div className="mx-auto grid max-w-6xl items-center gap-12 lg:grid-cols-12 lg:gap-14">
           <Reveal className="lg:col-span-7">
@@ -116,7 +116,7 @@ export function ConsultationContent() {
               Personalized Herbal Care, Supervised by an Experienced Practitioner.
             </h1>
             <p className="mt-5 max-w-xl text-base leading-relaxed text-stone-600 md:text-lg">
-              Book a one-on-one session with {siteConfig.hakeemName} — rooted in 20+ years of clinical
+              Book a one-on-one session with {siteConfig.hakeemName} - rooted in 20+ years of clinical
               Unani experience, root-cause assessment, tailored herbal compounding, and
               patient-first guidance for your home.
             </p>
@@ -165,7 +165,7 @@ export function ConsultationContent() {
         </div>
       </section>
 
-      {/* Section 2 — Type selection */}
+      {/* Section 2 - Type selection */}
       <section className="bg-white px-6 py-20">
         <Reveal>
           <div className="mx-auto max-w-2xl text-center">
@@ -250,7 +250,7 @@ export function ConsultationContent() {
         </div>
       </section>
 
-      {/* Section 3 — Booking form */}
+      {/* Section 3 - Booking form */}
       <section className="bg-[#FAF8F5] px-6 py-8 sm:py-12">
         <Reveal>
           <div className="mx-auto my-8 max-w-4xl rounded-3xl border border-stone-200/80 bg-white p-8 shadow-xl shadow-stone-900/5 lg:p-12">
@@ -260,7 +260,7 @@ export function ConsultationContent() {
                   Complete Your Consultation Request
                 </h2>
                 <p className="mt-2 text-sm text-stone-500">
-                  Tell us a little about yourself — we&apos;ll confirm your preferred slot.
+                  Tell us a little about yourself - we&apos;ll confirm your preferred slot.
                 </p>
               </div>
               <span className="rounded-full border border-stone-200 bg-[#FDFBF7] px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide text-[#1B4332]">
@@ -553,7 +553,7 @@ export function ConsultationContent() {
         </Reveal>
       </section>
 
-      {/* Section 4 — Journey */}
+      {/* Section 4 - Journey */}
       <section className="bg-[#F4F1EA] px-6 py-20">
         <Reveal>
           <div className="mx-auto max-w-2xl text-center">
@@ -578,7 +578,7 @@ export function ConsultationContent() {
         </div>
       </section>
 
-      {/* Section 5 — FAQ */}
+      {/* Section 5 - FAQ */}
       <section className="bg-white px-6 py-20">
         <Reveal>
           <div className="mx-auto max-w-2xl text-center">

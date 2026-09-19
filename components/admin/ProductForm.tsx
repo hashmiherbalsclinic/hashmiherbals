@@ -3,7 +3,17 @@
 import Image from "next/image";
 import { FormEvent, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ImagePlus, Trash2, Upload, X } from "lucide-react";
+import {
+  Check,
+  Copy,
+  ImagePlus,
+  Link2,
+  Loader2,
+  Sparkles,
+  Trash2,
+  Upload,
+  X,
+} from "lucide-react";
 import {
   PRODUCT_CATEGORIES,
   slugify,
@@ -12,6 +22,12 @@ import {
   type ProductWeightRow,
 } from "@/lib/admin/types";
 import { createClient } from "@/lib/supabase/client";
+import { revalidateProductsCache } from "@/lib/admin/actions";
+import { generateProductDraft } from "@/lib/admin/product-generate";
+import { generateProductPhotoPrompt } from "@/lib/admin/product-photo-prompt";
+import { prepareProductWebpUpload } from "@/lib/admin/to-webp";
+import { toUserFacingError } from "@/lib/errors/user-message";
+import { ErrorAlert } from "@/components/errors/ErrorAlert";
 
 const field =
   "mt-1.5 w-full rounded-xl border border-[#d8e0d6] bg-white px-3.5 py-2.5 text-sm outline-none transition focus:border-[#74a13a] focus:ring-2 focus:ring-[#74a13a]/25";
@@ -82,7 +98,8 @@ function parseWeights(drafts: WeightDraft[]): ProductWeightRow[] {
 export function ProductForm({ product }: Props) {
   const router = useRouter();
   const isEdit = Boolean(product);
-  const fileRef = useRef<HTMLInputElement>(null);
+  const primaryRef = useRef<HTMLInputElement>(null);
+  const galleryRef = useRef<HTMLInputElement>(null);
 
   const [title, setTitle] = useState(product?.title ?? "");
   const [slug, setSlug] = useState(product?.slug ?? "");
@@ -107,6 +124,7 @@ export function ProductForm({ product }: Props) {
         ? [product.image]
         : []
   );
+  const [imageMode, setImageMode] = useState<"upload" | "url">("upload");
   const [benefits, setBenefits] = useState(listToLines(product?.benefits));
   const [ingredients, setIngredients] = useState(
     listToLines(product?.ingredients)
@@ -143,11 +161,169 @@ export function ProductForm({ product }: Props) {
   const [featured, setFeatured] = useState(product?.featured ?? false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [uploading, setUploading] = useState(false);
+  const [uploadingPrimary, setUploadingPrimary] = useState(false);
+  const [uploadingGallery, setUploadingGallery] = useState(false);
+  const [aiName, setAiName] = useState(product?.title ?? "");
+  const [aiNotes, setAiNotes] = useState("");
+  const [aiLanguage, setAiLanguage] = useState<"en" | "ur">("en");
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiMessage, setAiMessage] = useState<string | null>(null);
+  const [photoPromptLoading, setPhotoPromptLoading] = useState(false);
+  const [photoPrompt, setPhotoPrompt] = useState<string | null>(null);
+  const [photoNegative, setPhotoNegative] = useState<string | null>(null);
+  const [photoCaption, setPhotoCaption] = useState<string | null>(null);
+  const [copiedField, setCopiedField] = useState<"prompt" | "negative" | null>(
+    null
+  );
 
   function onTitleChange(value: string) {
     setTitle(value);
     if (!slugTouched) setSlug(slugify(value));
+  }
+
+  function productImageNameHint() {
+    return slug.trim() || title.trim() || aiName.trim() || "product";
+  }
+
+  function addToGallery(url: string) {
+    setImages((prev) => (prev.includes(url) ? prev : [...prev, url]));
+  }
+
+  async function uploadImageFile(file: File, role: "primary" | "gallery") {
+    const { file: webp, storagePath } = await prepareProductWebpUpload(file, {
+      nameHint: productImageNameHint(),
+      role,
+      index: role === "gallery" ? images.length + 1 : undefined,
+    });
+    const supabase = createClient();
+    const { error: upErr } = await supabase.storage
+      .from("product-images")
+      .upload(storagePath, webp, {
+        cacheControl: "3600",
+        upsert: false,
+        contentType: "image/webp",
+      });
+    if (upErr) throw upErr;
+    const { data } = supabase.storage
+      .from("product-images")
+      .getPublicUrl(storagePath);
+    return data.publicUrl;
+  }
+
+  async function onGenerateAi() {
+    setError(null);
+    setAiMessage(null);
+    const name = aiName.trim() || title.trim();
+    if (name.length < 2) {
+      setError("Enter a product name for the AI bot (or fill Title first).");
+      return;
+    }
+
+    const hasCopy =
+      Boolean(description.trim()) ||
+      Boolean(benefits.trim()) ||
+      Boolean(howToUse.trim()) ||
+      faqs.some((f) => f.a.trim());
+    if (
+      hasCopy &&
+      !window.confirm(
+        "AI will replace title, description, category, benefits, ingredients, how-to-use, highlights, and FAQs. Weights and prices stay as you set them. Continue?"
+      )
+    ) {
+      return;
+    }
+
+    setAiLoading(true);
+    try {
+      const result = await generateProductDraft({
+        productName: name,
+        notes: aiNotes,
+        language: aiLanguage,
+        categoryHint: category,
+      });
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+
+      onTitleChange(result.title);
+      setTagline(result.tagline);
+      setDescription(result.description);
+      setCategory(result.category);
+      setTasteNote(result.tasteNote);
+      setBenefits(result.benefits.join("\n"));
+      setIngredients(result.ingredients.join("\n"));
+      setHowToUse(result.howToUse.join("\n"));
+      setHighlights(result.highlights.join("\n"));
+      setFaqs(
+        result.faqs.length
+          ? result.faqs
+          : [
+              { q: "How long does one pack typically last?", a: "" },
+              { q: "Are there any known side effects?", a: "" },
+              { q: "Can I combine this with other herbal remedies?", a: "" },
+              { q: "How should I store this product?", a: "" },
+            ]
+      );
+      setAiMessage(
+        `Details filled${result.modelId ? ` (${result.modelId})` : ""}. Add pack weights and PKR prices yourself, then upload images and save.`
+      );
+    } catch (err) {
+      setError(toUserFacingError(err, "admin"));
+    } finally {
+      setAiLoading(false);
+    }
+  }
+
+  async function onGeneratePhotoPrompt() {
+    setError(null);
+    setAiMessage(null);
+
+    const nameForImage =
+      aiName.trim() || title.trim() || tagline.trim() || description.trim();
+    if (!nameForImage) {
+      setError(
+        "Enter a product name or title first so the photo prompt matches the product."
+      );
+      return;
+    }
+
+    setPhotoPromptLoading(true);
+    try {
+      const result = await generateProductPhotoPrompt({
+        productName: nameForImage,
+        title: title.trim() || undefined,
+        description: description.trim() || undefined,
+        category: category.trim() || undefined,
+        tagline: tagline.trim() || undefined,
+        notes: aiNotes.trim() || undefined,
+        language: aiLanguage,
+      });
+      if (!result.ok) {
+        setError(toUserFacingError(result.error, "admin"));
+        return;
+      }
+      setPhotoPrompt(result.prompt);
+      setPhotoNegative(result.negativePrompt);
+      setPhotoCaption(result.shortCaption);
+      setAiMessage(
+        `Ultra-realistic product photo prompt ready${result.modelId ? ` (${result.modelId})` : ""} — copy it into Gemini / Midjourney, then upload the result here.`
+      );
+    } catch (err) {
+      setError(toUserFacingError(err, "admin"));
+    } finally {
+      setPhotoPromptLoading(false);
+    }
+  }
+
+  async function copyText(text: string, field: "prompt" | "negative") {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedField(field);
+      window.setTimeout(() => setCopiedField(null), 1600);
+    } catch {
+      setError("Could not copy to clipboard.");
+    }
   }
 
   function setPrimary(url: string) {
@@ -166,46 +342,44 @@ export function ProductForm({ product }: Props) {
     });
   }
 
-  async function uploadFiles(files: FileList | null) {
+  async function uploadPrimary(files: FileList | null) {
     if (!files?.length) return;
     setError(null);
-    setUploading(true);
-    const supabase = createClient();
-    const uploaded: string[] = [];
-
+    setUploadingPrimary(true);
     try {
-      for (const file of Array.from(files)) {
-        if (!file.type.startsWith("image/")) {
-          setError("Only image files are allowed.");
-          continue;
-        }
-        if (file.size > 5 * 1024 * 1024) {
-          setError("Each image must be under 5MB.");
-          continue;
-        }
-        const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
-        const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-        const { error: upErr } = await supabase.storage
-          .from("product-images")
-          .upload(path, file, { cacheControl: "3600", upsert: false });
-        if (upErr) throw upErr;
-        const { data } = supabase.storage.from("product-images").getPublicUrl(path);
-        uploaded.push(data.publicUrl);
-      }
-
-      if (uploaded.length) {
-        setImages((prev) => {
-          const next = [...prev, ...uploaded];
-          if (!image) setImage(uploaded[0]);
-          return next;
-        });
-        if (!image && uploaded[0]) setImage(uploaded[0]);
-      }
+      const url = await uploadImageFile(files[0], "primary");
+      setImage(url);
+      addToGallery(url);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Image upload failed.");
+      setError(toUserFacingError(err, "admin"));
     } finally {
-      setUploading(false);
-      if (fileRef.current) fileRef.current.value = "";
+      setUploadingPrimary(false);
+      if (primaryRef.current) primaryRef.current.value = "";
+    }
+  }
+
+  async function uploadGallery(files: FileList | null) {
+    if (!files?.length) return;
+    setError(null);
+    setUploadingGallery(true);
+    try {
+      const urls: string[] = [];
+      for (const file of Array.from(files)) {
+        urls.push(await uploadImageFile(file, "gallery"));
+      }
+      setImages((prev) => {
+        const next = [...prev];
+        for (const url of urls) {
+          if (!next.includes(url)) next.push(url);
+        }
+        return next;
+      });
+      if (!image && urls[0]) setImage(urls[0]);
+    } catch (err) {
+      setError(toUserFacingError(err, "admin"));
+    } finally {
+      setUploadingGallery(false);
+      if (galleryRef.current) galleryRef.current.value = "";
     }
   }
 
@@ -266,18 +440,19 @@ export function ProductForm({ product }: Props) {
         .eq("id", product.id);
       setLoading(false);
       if (err) {
-        setError(err.message);
+        setError(toUserFacingError(err.message, "admin"));
         return;
       }
     } else {
       const { error: err } = await supabase.from("products").insert(payload);
       setLoading(false);
       if (err) {
-        setError(err.message);
+        setError(toUserFacingError(err.message, "admin"));
         return;
       }
     }
 
+    await revalidateProductsCache();
     router.push("/admin/products");
     router.refresh();
   }
@@ -288,10 +463,93 @@ export function ProductForm({ product }: Props) {
       className="mx-auto max-w-4xl space-y-8 rounded-2xl border border-[#d8e0d6] bg-white p-5 shadow-sm sm:p-8"
     >
       {error && (
-        <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-          {error}
+        <ErrorAlert
+          error={error}
+          audience="admin"
+          onDismiss={() => setError(null)}
+        />
+      )}
+      {aiMessage && (
+        <div className="rounded-xl border border-[#c5d9c8] bg-[#f3f8f2] px-4 py-3 text-sm text-[#174a37]">
+          {aiMessage}
         </div>
       )}
+
+      <section className="space-y-4 rounded-2xl border border-[#d8e0d6] bg-gradient-to-br from-[#f8faf7] to-white p-5 shadow-sm sm:p-7">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#1f5c45]/70">
+              AI product bot
+            </p>
+            <h2 className="mt-1 text-lg font-bold text-[#0f2a22]">
+              Generate details with Gemini
+            </h2>
+            <p className="mt-1 text-sm text-stone-500">
+              Fills title, description, category, benefits, ingredients, directions,
+              and FAQs. You add pack weights, PKR prices, stock, and images.
+            </p>
+          </div>
+          <span className="inline-flex items-center gap-1.5 rounded-lg bg-[#1f5c45]/10 px-2.5 py-1 text-xs font-semibold text-[#1f5c45]">
+            <Sparkles className="h-3.5 w-3.5" />
+            Gemini Flash-Lite
+          </span>
+        </div>
+
+        <label className={labelCls}>
+          Product name
+          <input
+            value={aiName}
+            onChange={(e) => setAiName(e.target.value)}
+            className={field}
+            placeholder="e.g. Kalonji Oil, Majoon Mubahi, Pure Salajeet"
+            disabled={aiLoading || loading}
+          />
+        </label>
+
+        <label className={labelCls}>
+          Extra notes (optional)
+          <textarea
+            rows={2}
+            value={aiNotes}
+            onChange={(e) => setAiNotes(e.target.value)}
+            className={field}
+            placeholder="Cold-pressed, for hair, Unani tonic, women’s care…"
+            disabled={aiLoading || loading}
+          />
+        </label>
+
+        <label className={`${labelCls} max-w-xs`}>
+          Language
+          <select
+            value={aiLanguage}
+            onChange={(e) => setAiLanguage(e.target.value as "en" | "ur")}
+            className={field}
+            disabled={aiLoading || loading}
+          >
+            <option value="en">English</option>
+            <option value="ur">Urdu (اردو)</option>
+          </select>
+        </label>
+
+        <button
+          type="button"
+          onClick={onGenerateAi}
+          disabled={aiLoading || loading || uploadingPrimary || uploadingGallery}
+          className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#1f5c45] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#174a37] disabled:opacity-60"
+        >
+          {aiLoading ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Generating details…
+            </>
+          ) : (
+            <>
+              <Sparkles className="h-4 w-4" />
+              Generate &amp; insert into form
+            </>
+          )}
+        </button>
+      </section>
 
       {/* Basics */}
       <section className="space-y-4">
@@ -325,7 +583,7 @@ export function ProductForm({ product }: Props) {
             value={tagline}
             onChange={(e) => setTagline(e.target.value)}
             className={field}
-            placeholder="One-line claim — e.g. Traditional Unani tonic for daily vitality"
+            placeholder="One-line claim - e.g. Traditional Unani tonic for daily vitality"
           />
         </label>
         <label className={labelCls}>
@@ -345,96 +603,287 @@ export function ProductForm({ product }: Props) {
       </section>
 
       {/* Images */}
-      <section className="space-y-4">
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <p className={sectionTitle}>Product images</p>
-            <p className="mt-1 text-xs text-muted">
-              First / primary image is shown in the product hero. Extra images are optional.
-            </p>
-          </div>
-          <button
-            type="button"
-            disabled={uploading}
-            onClick={() => fileRef.current?.click()}
-            className="inline-flex items-center gap-2 rounded-xl bg-[#1f5c45] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#174a37] disabled:opacity-60"
-          >
-            {uploading ? (
-              "Uploading…"
-            ) : (
-              <>
-                <Upload className="h-4 w-4" />
-                Upload images
-              </>
-            )}
-          </button>
-          <input
-            ref={fileRef}
-            type="file"
-            accept="image/jpeg,image/png,image/webp,image/gif"
-            multiple
-            className="hidden"
-            onChange={(e) => uploadFiles(e.target.files)}
-          />
+      <section className="space-y-4 rounded-2xl border border-[#d8e0d6] bg-[#fafaf8] p-5 sm:p-6">
+        <div>
+          <p className={sectionTitle}>Product images</p>
+          <h2 className="mt-1 text-lg font-bold text-[#0f2a22]">Primary &amp; gallery</h2>
+          <p className="mt-1 text-sm text-stone-500">
+            JPG/PNG uploads convert to WebP and rename from the product slug
+            (e.g. kalonji-oil-primary-….webp). Photos show full-bleed on the shop
+            (edge-to-edge). Paste a URL, add gallery photos, or get an
+            ultra-realistic product photo prompt.
+          </p>
         </div>
 
-        {images.length === 0 ? (
+        <div className="flex flex-wrap gap-2">
           <button
             type="button"
-            onClick={() => fileRef.current?.click()}
-            className="flex w-full flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-[#1f5c45]/25 bg-[#f3f6f2] px-6 py-14 text-sm text-[#1f4d3a] transition hover:border-[#1f5c45]/50"
+            onClick={() => setImageMode("upload")}
+            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+              imageMode === "upload"
+                ? "bg-[#1f5c45] text-white"
+                : "bg-white text-[#0f2a22] hover:bg-[#e8eee6]"
+            }`}
           >
-            <ImagePlus className="h-8 w-8 opacity-60" />
-            Click to upload product photos
-            <span className="text-xs text-muted">JPG, PNG, or WebP · max 5MB each</span>
+            <Upload className="h-3.5 w-3.5" />
+            Upload primary
           </button>
-        ) : (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-            {images.map((url) => {
-              const isPrimary = url === (image || images[0]);
-              return (
-                <div
-                  key={url}
-                  className={`group relative aspect-square overflow-hidden rounded-xl border bg-[#f6f4ef] ${
-                    isPrimary ? "border-[#1f5c45] ring-2 ring-[#1f5c45]/30" : "border-[#d8e0d6]"
-                  }`}
+          <button
+            type="button"
+            onClick={() => setImageMode("url")}
+            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+              imageMode === "url"
+                ? "bg-[#1f5c45] text-white"
+                : "bg-white text-[#0f2a22] hover:bg-[#e8eee6]"
+            }`}
+          >
+            <Link2 className="h-3.5 w-3.5" />
+            Primary from URL
+          </button>
+          <button
+            type="button"
+            onClick={() => galleryRef.current?.click()}
+            disabled={uploadingGallery || loading || photoPromptLoading}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-[#0f2a22] transition hover:bg-[#e8eee6] disabled:opacity-60"
+          >
+            {uploadingGallery ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <ImagePlus className="h-3.5 w-3.5" />
+            )}
+            Add gallery photos
+          </button>
+          <button
+            type="button"
+            onClick={onGeneratePhotoPrompt}
+            disabled={
+              photoPromptLoading ||
+              loading ||
+              uploadingPrimary ||
+              uploadingGallery
+            }
+            className="inline-flex items-center gap-1.5 rounded-lg bg-[#1f5c45] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-[#174a37] disabled:opacity-60"
+          >
+            {photoPromptLoading ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Sparkles className="h-3.5 w-3.5" />
+            )}
+            {photoPromptLoading
+              ? "Writing prompt…"
+              : "Get ultra-realistic photo prompt"}
+          </button>
+        </div>
+
+        {photoPrompt && (
+          <div className="space-y-3 rounded-2xl border border-[#c5d9c8] bg-[#f7faf6] p-4">
+            {photoCaption && (
+              <p className="text-sm font-medium text-[#174a37]">{photoCaption}</p>
+            )}
+            <div>
+              <div className="mb-1.5 flex items-center justify-between gap-2">
+                <p className="text-xs font-bold uppercase tracking-wide text-[#1f5c45]/80">
+                  Photo prompt
+                </p>
+                <button
+                  type="button"
+                  onClick={() => copyText(photoPrompt, "prompt")}
+                  className="inline-flex items-center gap-1 rounded-md bg-white px-2 py-1 text-[11px] font-semibold text-[#0f2a22] shadow-sm hover:bg-[#f3f6f2]"
                 >
-                  <Image src={url} alt="" fill className="object-cover" sizes="180px" />
-                  <div className="absolute inset-x-0 bottom-0 flex gap-1 bg-gradient-to-t from-black/70 to-transparent p-2 opacity-0 transition group-hover:opacity-100">
-                    {!isPrimary && (
-                      <button
-                        type="button"
-                        onClick={() => setPrimary(url)}
-                        className="flex-1 rounded-lg bg-white/95 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-[#0f2a22]"
-                      >
-                        Primary
-                      </button>
+                  {copiedField === "prompt" ? (
+                    <Check className="h-3.5 w-3.5 text-[#1f5c45]" />
+                  ) : (
+                    <Copy className="h-3.5 w-3.5" />
+                  )}
+                  {copiedField === "prompt" ? "Copied" : "Copy"}
+                </button>
+              </div>
+              <textarea
+                readOnly
+                rows={6}
+                value={photoPrompt}
+                className={`${field} mt-0 resize-y bg-white font-mono text-xs leading-relaxed`}
+              />
+            </div>
+            {photoNegative && (
+              <div>
+                <div className="mb-1.5 flex items-center justify-between gap-2">
+                  <p className="text-xs font-bold uppercase tracking-wide text-[#1f5c45]/80">
+                    Negative prompt
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => copyText(photoNegative, "negative")}
+                    className="inline-flex items-center gap-1 rounded-md bg-white px-2 py-1 text-[11px] font-semibold text-[#0f2a22] shadow-sm hover:bg-[#f3f6f2]"
+                  >
+                    {copiedField === "negative" ? (
+                      <Check className="h-3.5 w-3.5 text-[#1f5c45]" />
+                    ) : (
+                      <Copy className="h-3.5 w-3.5" />
                     )}
-                    {isPrimary && (
-                      <span className="flex-1 rounded-lg bg-[#74a13a] px-2 py-1 text-center text-[10px] font-bold uppercase tracking-wide text-white">
-                        Primary
-                      </span>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => removeImage(url)}
-                      className="rounded-lg bg-white/95 p-1.5 text-rose-600"
-                      aria-label="Remove image"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
+                    {copiedField === "negative" ? "Copied" : "Copy"}
+                  </button>
                 </div>
-              );
-            })}
+                <textarea
+                  readOnly
+                  rows={2}
+                  value={photoNegative}
+                  className={`${field} mt-0 resize-y bg-white font-mono text-xs leading-relaxed`}
+                />
+              </div>
+            )}
+            <p className="text-xs text-stone-500">
+              Paste into Gemini / Midjourney / similar, generate the photo, then
+              upload it as the primary image above.
+            </p>
+          </div>
+        )}
+
+        {imageMode === "upload" ? (
+          image ? (
+            <div className="relative overflow-hidden rounded-2xl border border-[#d8e0d6] bg-white">
+              <div className="relative aspect-square max-w-sm">
+                <Image
+                  src={image}
+                  alt="Primary preview"
+                  fill
+                  className="object-cover"
+                  sizes="(max-width:768px) 100vw, 360px"
+                />
+              </div>
+              <div className="absolute right-3 top-3 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => primaryRef.current?.click()}
+                  disabled={uploadingPrimary}
+                  className="rounded-lg bg-white/95 px-3 py-1.5 text-xs font-semibold text-[#0f2a22] shadow-sm hover:bg-white"
+                >
+                  Replace
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setImage("")}
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-white/95 text-rose-600 shadow-sm hover:bg-white"
+                  aria-label="Remove primary"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <p className="absolute bottom-3 left-3 rounded-md bg-black/55 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-white">
+                Primary
+              </p>
+            </div>
+          ) : (
             <button
               type="button"
-              onClick={() => fileRef.current?.click()}
-              className="flex aspect-square flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-[#d8e0d6] text-[#1f4d3a] transition hover:border-[#1f5c45]/40 hover:bg-[#f3f6f2]"
+              onClick={() => primaryRef.current?.click()}
+              disabled={uploadingPrimary}
+              className="flex w-full flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-[#b7c7b4] bg-white px-6 py-12 text-sm text-[#0f2a22] transition hover:border-[#1f5c45]/40 hover:bg-[#f3f6f2] disabled:opacity-60"
             >
-              <ImagePlus className="h-6 w-6 opacity-50" />
-              <span className="text-xs font-semibold">Add more</span>
+              {uploadingPrimary ? (
+                <Loader2 className="h-7 w-7 animate-spin text-[#1f5c45]" />
+              ) : (
+                <ImagePlus className="h-7 w-7 text-[#1f5c45]" />
+              )}
+              <span className="font-semibold">
+                {uploadingPrimary ? "Uploading primary…" : "Upload primary image"}
+              </span>
+              <span className="text-xs text-stone-500">JPG, PNG, or WebP · max 5MB</span>
             </button>
+          )
+        ) : (
+          <label className={labelCls}>
+            Primary image URL
+            <input
+              value={image}
+              onChange={(e) => {
+                const url = e.target.value;
+                setImage(url);
+                if (url.trim()) addToGallery(url.trim());
+              }}
+              className={field}
+              placeholder="https://…"
+            />
+          </label>
+        )}
+
+        <input
+          ref={primaryRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => uploadPrimary(e.target.files)}
+        />
+        <input
+          ref={galleryRef}
+          type="file"
+          accept="image/*"
+          multiple
+          className="hidden"
+          onChange={(e) => uploadGallery(e.target.files)}
+        />
+
+        {images.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-[#0f2a22]">
+              Gallery ({images.length})
+            </p>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+              {images.map((url) => {
+                const isPrimary = url === (image || images[0]);
+                return (
+                  <div
+                    key={url}
+                    className={`group relative overflow-hidden rounded-xl border bg-white ${
+                      isPrimary
+                        ? "border-[#1f5c45] ring-2 ring-[#1f5c45]/25"
+                        : "border-[#d8e0d6]"
+                    }`}
+                  >
+                    <div className="relative aspect-square">
+                      <Image
+                        src={url}
+                        alt=""
+                        fill
+                        className="object-cover"
+                        sizes="160px"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1 p-2">
+                      {isPrimary ? (
+                        <span className="text-[10px] font-bold uppercase tracking-wide text-[#1f5c45]">
+                          Primary
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setPrimary(url)}
+                          className="text-left text-[11px] font-semibold text-[#1f5c45] hover:underline"
+                        >
+                          Set as primary
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => removeImage(url)}
+                        className="text-left text-[11px] font-semibold text-rose-600 hover:underline"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+              <button
+                type="button"
+                onClick={() => galleryRef.current?.click()}
+                disabled={uploadingGallery}
+                className="flex aspect-square flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-[#d8e0d6] bg-white text-[#1f4d3a] transition hover:border-[#1f5c45]/40 hover:bg-[#f3f6f2] disabled:opacity-60"
+              >
+                <ImagePlus className="h-6 w-6 opacity-50" />
+                <span className="text-xs font-semibold">Add more</span>
+              </button>
+            </div>
           </div>
         )}
       </section>
@@ -614,7 +1063,7 @@ export function ProductForm({ product }: Props) {
         </label>
       </section>
 
-      {/* Product page content — matches storefront PDP */}
+      {/* Product page content - matches storefront PDP */}
       <section className="space-y-4">
         <div>
           <p className={sectionTitle}>Product page content</p>
@@ -788,7 +1237,7 @@ export function ProductForm({ product }: Props) {
       <div className="flex items-center gap-3 pt-2">
         <button
           type="submit"
-          disabled={loading || uploading}
+          disabled={loading || uploadingPrimary || uploadingGallery || aiLoading || photoPromptLoading}
           className="rounded-xl bg-[#1f5c45] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#174a37] disabled:opacity-60"
         >
           {loading ? "Saving…" : isEdit ? "Update product" : "Create product"}

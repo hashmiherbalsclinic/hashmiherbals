@@ -2,7 +2,7 @@
 
 import { motion, useReducedMotion } from "framer-motion";
 
-/** Clean warm canvas with soft ambient light only — no decorative graphics */
+/** Clean warm canvas with soft ambient light only - no decorative graphics */
 export function HeroBackground() {
   const reduceMotion = useReducedMotion();
 

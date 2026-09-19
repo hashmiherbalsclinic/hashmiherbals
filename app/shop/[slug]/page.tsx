@@ -1,12 +1,17 @@
 import { notFound } from "next/navigation";
 import { ProductDetail } from "@/components/ProductDetail";
 import { siteConfig } from "@/lib/catalog";
-import { fetchProductBySlug, fetchRelatedProducts } from "@/lib/products";
+import {
+  fetchProductBySlug,
+  fetchProductSlugs,
+  fetchRelatedProducts,
+} from "@/lib/products";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 60;
 
 export async function generateStaticParams() {
-  return [];
+  const slugs = await fetchProductSlugs(80);
+  return slugs.map((slug) => ({ slug }));
 }
 
 export async function generateMetadata({

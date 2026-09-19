@@ -1,5 +1,5 @@
 -- ============================================================
--- HASHMI HERBALS — run this ENTIRE file once in SQL Editor
+-- HASHMI HERBALS - run this ENTIRE file once in SQL Editor
 -- Do NOT run the old migration. This one DROPs old tables first.
 -- ============================================================
 
@@ -27,9 +27,18 @@ alter table public.profiles enable row level security;
 create or replace function public.handle_new_user()
 returns trigger language plpgsql security definer set search_path = public as $$
 begin
-  insert into public.profiles (id, email, full_name, role)
-  values (new.id, new.email, coalesce(new.raw_user_meta_data->>'full_name', ''), 'customer')
-  on conflict (id) do update set email = excluded.email;
+  insert into public.profiles (id, email, full_name, phone, role)
+  values (
+    new.id,
+    new.email,
+    coalesce(new.raw_user_meta_data->>'full_name', ''),
+    nullif(coalesce(new.raw_user_meta_data->>'phone', ''), ''),
+    'customer'
+  )
+  on conflict (id) do update set
+    email = excluded.email,
+    full_name = coalesce(nullif(excluded.full_name, ''), public.profiles.full_name),
+    phone = coalesce(excluded.phone, public.profiles.phone);
   return new;
 end;
 $$;

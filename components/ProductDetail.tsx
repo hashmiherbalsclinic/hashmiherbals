@@ -130,7 +130,7 @@ export function ProductDetail({
       : defaultFaqs;
 
   const waHref = `https://wa.me/${siteConfig.whatsapp}?text=${encodeURIComponent(
-    `Assalamualaikum! I'd like to order ${product.title} (${selectedSize.label}) — ${formatPrice(unitPrice)}.`
+    `Assalamualaikum! I'd like to order ${product.title} (${selectedSize.label}) - ${formatPrice(unitPrice)}.`
   )}`;
 
   const handleAdd = () => {
@@ -141,18 +141,18 @@ export function ProductDetail({
 
   return (
     <div className="bg-[#FAF8F5]">
-      {/* Section 1 — Essential product hero */}
+      {/* Section 1 - Essential product hero */}
       <section className="mx-auto grid max-w-6xl items-center gap-12 px-6 py-12 lg:grid-cols-2">
-        <div className="relative flex aspect-square items-center justify-center rounded-3xl border border-stone-200/80 bg-white p-8 shadow-sm">
+        <div className="relative aspect-square overflow-hidden rounded-3xl border border-stone-200/80 bg-white shadow-sm">
           <Image
             src={product.image}
             alt={product.title}
             fill
-            className="object-contain p-10 sm:p-14"
+            className="object-cover"
             sizes="(max-width:1024px) 100vw, 50vw"
             priority
           />
-          <span className="absolute left-4 top-4 rounded-full border border-[#1B4332]/10 bg-[#1B4332]/5 px-3 py-1 text-[11px] font-semibold tracking-wide text-[#1B4332]">
+          <span className="absolute left-4 top-4 rounded-full border border-[#1B4332]/10 bg-white/90 px-3 py-1 text-[11px] font-semibold tracking-wide text-[#1B4332] shadow-sm">
             100% Pure Herbal
           </span>
         </div>
@@ -213,7 +213,7 @@ export function ProductDetail({
                 ? "Out of stock"
                 : added
                   ? "Added to Cart"
-                  : `Add to Cart — ${formatPrice(unitPrice)}`}
+                  : `Add to Cart - ${formatPrice(unitPrice)}`}
             </button>
             <a
               href={waHref}
@@ -247,7 +247,7 @@ export function ProductDetail({
         </div>
       </section>
 
-      {/* Section 2 — Benefits & FAQs */}
+      {/* Section 2 - Benefits & FAQs */}
       <section className="mx-auto max-w-3xl border-t border-stone-200/80 px-6 py-12">
         <div>
           <h2 className="font-display mb-6 text-2xl font-bold text-[#1B4332]">

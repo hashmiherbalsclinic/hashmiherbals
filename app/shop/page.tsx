@@ -4,7 +4,7 @@ import { categories } from "@/lib/catalog";
 import { fetchProducts } from "@/lib/products";
 
 export const metadata = { title: "Shop" };
-export const dynamic = "force-dynamic";
+export const revalidate = 60;
 
 export default async function ShopPage({
   searchParams,
@@ -22,6 +22,7 @@ export default async function ShopPage({
       <div className="mt-6 flex flex-wrap gap-2">
         <Link
           href="/shop"
+          prefetch
           className={`rounded-full px-4 py-2 text-sm font-medium ${
             !category ? "bg-ink text-white" : "border border-line bg-white hover:border-green"
           }`}
@@ -32,6 +33,7 @@ export default async function ShopPage({
           <Link
             key={c.id}
             href={`/shop?category=${c.id}`}
+            prefetch
             className={`rounded-full px-4 py-2 text-sm font-medium ${
               category === c.id ? "bg-ink text-white" : "border border-line bg-white hover:border-green"
             }`}

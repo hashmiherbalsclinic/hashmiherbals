@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { DeleteAllOrdersButton } from "@/components/admin/DeleteAllOrdersButton";
 import { OrderStatusBadge } from "@/components/admin/StatusBadge";
 import { formatPk, type OrderRow } from "@/lib/admin/types";
 import { createClient } from "@/lib/supabase/server";
@@ -14,7 +15,10 @@ export default async function AdminOrdersPage() {
 
   return (
     <div className="space-y-5">
-      <p className="text-sm text-muted">{orders.length} orders</p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-muted">{orders.length} orders</p>
+        <DeleteAllOrdersButton orderCount={orders.length} />
+      </div>
 
       {orders.length === 0 ? (
         <p className="rounded-2xl border border-[#d8e0d6] bg-white px-5 py-12 text-center text-sm text-muted shadow-sm">

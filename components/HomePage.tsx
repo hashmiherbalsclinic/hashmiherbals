@@ -1,5 +1,4 @@
 import { CategorySection } from "@/components/CategorySection";
-import { ContactSection } from "@/components/ContactSection";
 import { HeroSection } from "@/components/hero/HeroSection";
 import { BrandStory } from "@/components/home/BrandStory";
 import { CuratedProducts } from "@/components/home/CuratedProducts";
@@ -7,13 +6,26 @@ import { TrustTicker } from "@/components/home/TrustTicker";
 import { ProductCard } from "@/components/ProductCard";
 import { Reveal } from "@/components/Reveal";
 import { fetchHeroProducts, fetchProducts } from "@/lib/products";
+import dynamic from "next/dynamic";
 import Link from "next/link";
+import { Suspense } from "react";
+
+const ContactSection = dynamic(
+  () => import("@/components/ContactSection").then((m) => m.ContactSection),
+  {
+    loading: () => (
+      <div className="mx-auto max-w-6xl animate-pulse px-6 py-20">
+        <div className="h-64 rounded-3xl bg-stone-100" />
+      </div>
+    ),
+  }
+);
 
 export async function HomePage() {
   const [heroProducts, newArrivals, bestsellers, exploreProducts] = await Promise.all([
     fetchHeroProducts(3),
-    fetchProducts({ newArrival: true, limit: 4 }),
-    fetchProducts({ bestseller: true, limit: 4 }),
+    fetchProducts({ newArrival: true, limit: 12 }),
+    fetchProducts({ bestseller: true, limit: 12 }),
     fetchProducts({
       excludeBestseller: true,
       excludeNewArrival: true,
@@ -62,7 +74,15 @@ export async function HomePage() {
         </section>
       )}
 
-      <ContactSection />
+      <Suspense
+        fallback={
+          <div className="mx-auto max-w-6xl animate-pulse px-6 py-20">
+            <div className="h-64 rounded-3xl bg-stone-100" />
+          </div>
+        }
+      >
+        <ContactSection />
+      </Suspense>
     </>
   );
 }
