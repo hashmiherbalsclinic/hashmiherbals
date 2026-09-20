@@ -1,16 +1,27 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-export async function updateSession(request: NextRequest) {
+type UpdateSessionOptions = {
+  /** When true, never redirect (used for Server Actions / RSC mutations). */
+  skipRedirects?: boolean;
+};
+
+export async function updateSession(
+  request: NextRequest,
+  options: UpdateSessionOptions = {}
+) {
   try {
-    return await updateSessionInner(request);
+    return await updateSessionInner(request, options);
   } catch (error) {
     console.error("[updateSession]", error);
     return NextResponse.next({ request });
   }
 }
 
-async function updateSessionInner(request: NextRequest) {
+async function updateSessionInner(
+  request: NextRequest,
+  options: UpdateSessionOptions
+) {
   let supabaseResponse = NextResponse.next({ request });
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -23,10 +34,12 @@ async function updateSessionInner(request: NextRequest) {
         return request.cookies.getAll();
       },
       setAll(cookiesToSet) {
-        cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
+        cookiesToSet.forEach(({ name, value }) =>
+          request.cookies.set(name, value)
+        );
         supabaseResponse = NextResponse.next({ request });
-        cookiesToSet.forEach(({ name, value, options }) =>
-          supabaseResponse.cookies.set(name, value, options)
+        cookiesToSet.forEach(({ name, value, options: cookieOptions }) =>
+          supabaseResponse.cookies.set(name, value, cookieOptions)
         );
       },
     },
@@ -35,6 +48,10 @@ async function updateSessionInner(request: NextRequest) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
+
+  if (options.skipRedirects) {
+    return supabaseResponse;
+  }
 
   const path = request.nextUrl.pathname;
   const isAdminRoute = path.startsWith("/admin") && path !== "/admin/login";

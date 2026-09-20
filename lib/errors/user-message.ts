@@ -19,6 +19,12 @@ export function toUserFacingError(
       : "We couldn’t reach the server. Please check your internet and try again.";
   }
 
+  if (/unexpected response was received from the server/i.test(msg)) {
+    return audience === "admin"
+      ? "The AI request was interrupted (timeout or session). Wait a moment and try again — short English drafts are fastest."
+      : "The request was interrupted. Please try again.";
+  }
+
   if (/JWT|session|Auth session missing|not signed in|Invalid Refresh Token/i.test(msg)) {
     return audience === "admin"
       ? "Your admin session expired. Please sign in again."

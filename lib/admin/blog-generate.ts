@@ -2,7 +2,6 @@
 
 import { generateObject } from "ai";
 import { z } from "zod";
-import DOMPurify from "isomorphic-dompurify";
 import { createClient } from "@/lib/supabase/server";
 import {
   geminiUserError,
@@ -29,7 +28,9 @@ const blogSchema = z.object({
     .describe("Compelling blog title, max ~70 characters, no clickbait"),
   excerpt: z
     .string()
-    .describe("1–2 sentence summary for listing cards and SEO, max ~180 characters"),
+    .describe(
+      "1–2 sentence summary for listing cards and SEO, max ~180 characters"
+    ),
   category: z.enum(CATEGORIES).describe("Best-fit category from the allowed list"),
   bodyHtml: z
     .string()
@@ -77,25 +78,14 @@ async function requireAdmin() {
   return { error: null };
 }
 
+/** Lightweight sanitizer — avoids isomorphic-dompurify/jsdom cold-start cost on Vercel. */
 function sanitizeBlogHtml(html: string) {
-  return DOMPurify.sanitize(html, {
-    ALLOWED_TAGS: [
-      "h2",
-      "h3",
-      "p",
-      "ul",
-      "ol",
-      "li",
-      "strong",
-      "em",
-      "b",
-      "i",
-      "blockquote",
-      "a",
-      "br",
-    ],
-    ALLOWED_ATTR: ["href", "target", "rel", "dir", "lang"],
-  }).trim();
+  return html
+    .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, "")
+    .replace(/<style[\s\S]*?>[\s\S]*?<\/style>/gi, "")
+    .replace(/on\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "")
+    .replace(/javascript:/gi, "")
+    .trim();
 }
 
 const LENGTH_GUIDE = {
@@ -124,27 +114,27 @@ const LANGUAGE_GUIDE = {
 export async function generateBlogDraft(
   input: GenerateBlogInput
 ): Promise<GenerateBlogResult> {
-  const auth = await requireAdmin();
-  if (auth.error) return { ok: false, error: auth.error };
-
-  const topic = input.topic?.trim();
-  if (!topic || topic.length < 4) {
-    return { ok: false, error: "Enter a topic (at least a few words)." };
-  }
-  if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
-    return {
-      ok: false,
-      error:
-        "Missing GOOGLE_GENERATIVE_AI_API_KEY. Add your Gemini API key to .env.local.",
-    };
-  }
-
-  const tone = input.tone ?? "educational";
-  const length = input.length ?? "medium";
-  const language = input.language === "ur" ? "ur" : "en";
-  const notes = input.notes?.trim() || "";
-
   try {
+    const auth = await requireAdmin();
+    if (auth.error) return { ok: false, error: auth.error };
+
+    const topic = input.topic?.trim();
+    if (!topic || topic.length < 4) {
+      return { ok: false, error: "Enter a topic (at least a few words)." };
+    }
+    if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY?.trim()) {
+      return {
+        ok: false,
+        error:
+          "Missing GOOGLE_GENERATIVE_AI_API_KEY on the server. Add it in Vercel Environment Variables, then redeploy.",
+      };
+    }
+
+    const tone = input.tone ?? "educational";
+    const length = input.length ?? "medium";
+    const language = input.language === "ur" ? "ur" : "en";
+    const notes = input.notes?.trim() || "";
+
     const { data: object, modelId } = await withGeminiModelFallback(
       async (model) => {
         const { object: result } = await generateObject({
