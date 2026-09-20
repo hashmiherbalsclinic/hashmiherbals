@@ -11,7 +11,7 @@ export const siteConfig = {
   hakeemPhone: process.env.NEXT_PUBLIC_HAKEEM_PHONE?.trim() || "+92 300 4700279",
   hakeemPhoneRaw: process.env.NEXT_PUBLIC_HAKEEM_PHONE_RAW?.trim() || "03004700279",
   hakeemName: process.env.NEXT_PUBLIC_HAKEEM_NAME?.trim() || "Syed Mubashar Akhtar Hashmi",
-  email: "info@hashmiherbals.com",
+  email: "admin@hashmiherbals.com",
   /** Clinic address shown on Contact */
   address: "Hashmi Herbal Clinic & store",
   addressDetail: "Lahore, Pakistan",
