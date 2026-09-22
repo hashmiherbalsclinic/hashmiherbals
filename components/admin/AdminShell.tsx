@@ -12,6 +12,7 @@ import {
   MessageSquare,
   Newspaper,
   Package,
+  Settings,
   ShoppingBag,
   X,
 } from "lucide-react";
@@ -24,6 +25,7 @@ const NAV = [
   { href: "/admin/blogs", label: "Blogs", icon: Newspaper },
   { href: "/admin/messages", label: "Messages", icon: MessageSquare },
   { href: "/admin/tools/webp", label: "WebP tool", icon: ImageIcon },
+  { href: "/admin/settings", label: "Settings", icon: Settings },
 ] as const;
 
 function pageTitle(pathname: string) {
@@ -38,6 +40,7 @@ function pageTitle(pathname: string) {
   if (pathname.startsWith("/admin/blogs")) return "Blogs";
   if (pathname.startsWith("/admin/messages")) return "Messages";
   if (pathname.startsWith("/admin/tools/webp")) return "WebP converter";
+  if (pathname.startsWith("/admin/settings")) return "Settings";
   return "Admin";
 }
 
